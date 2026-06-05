@@ -110,6 +110,8 @@ enum Command {
         #[arg(long)]
         notify: bool,
     },
+    /// Interactive first-run setup: create a habit, log it, optionally connect AI
+    Init,
 }
 
 #[derive(Subcommand)]
@@ -372,8 +374,158 @@ pub async fn run() -> Result<()> {
             let db = open_and_migrate(&config).await?;
             run_nudge(&db, notify).await?;
         }
+        Command::Init => {
+            let db = open_and_migrate(&config).await?;
+            run_init(&db, &mut config).await?;
+        }
     }
     Ok(())
+}
+
+async fn run_init(db: &Db, config: &mut Config) -> Result<()> {
+    use std::io::Write as _;
+
+    println!();
+    println!("Welcome to HabitOS — local-first habit + focus + journal in your terminal.");
+    println!("Data lives at: {}", config.data_dir().display());
+    println!();
+
+    // 1. Habit setup (skip if any already exist)
+    let habit_repo = HabitRepo::new(db.pool());
+    let existing = habit_repo.list(true).await?;
+
+    if existing.is_empty() {
+        let name = prompt_line(
+            "Pick one habit to start tracking (e.g. Workout, Read, Meditate). Empty to skip.\n> ",
+        )?;
+        if !name.is_empty() {
+            let h = habit_repo.add(&name).await?;
+            println!("✓ Added `{}`.", h.name);
+
+            if prompt_yes_no(&format!("Mark `{}` done for today?", h.name), true)? {
+                let clock = SystemClock;
+                habit_repo
+                    .log(h.id, clock.today_local(), LogStatus::Done, None)
+                    .await?;
+                println!("✓ Logged done for today. Your streak is officially started.");
+            }
+        }
+    } else {
+        println!(
+            "You already have {} habit(s) — skipping habit setup.",
+            existing.len()
+        );
+    }
+
+    // 2. AI setup (optional)
+    println!();
+    if prompt_yes_no(
+        "Connect an AI backend for plan / coach / ask features? (you can do this later)",
+        false,
+    )? {
+        run_init_ai(config)?;
+    } else {
+        println!(
+            "Skipped. Configure later with `habitos connect claude <key>` or `habitos connect ollama <model>`."
+        );
+    }
+
+    // 3. Pointers
+    println!();
+    println!("You're set. Try:");
+    println!("  habitos log \"did Workout 30min\"   one-line capture");
+    println!("  habitos                            immersive TUI dashboard");
+    println!("  habitos heatmap                    year of progress (once you have data)");
+    println!("  habitos --help                     full command list");
+    let _ = std::io::stdout().flush();
+    Ok(())
+}
+
+fn run_init_ai(config: &mut Config) -> Result<()> {
+    use habitos_core::config::AiConfig;
+    use std::io::Write as _;
+
+    println!();
+    println!("Pick a backend:");
+    println!("  [1] Claude (Anthropic API key required)");
+    println!("  [2] Ollama (local model, must be installed)");
+    println!("  [Enter] Skip");
+    let choice = prompt_line("> ")?;
+
+    match choice.as_str() {
+        "1" => {
+            let key = prompt_line("Anthropic API key (sk-ant-...): ")?;
+            if key.is_empty() {
+                println!("No key provided. Skipping.");
+                return Ok(());
+            }
+            config.save_ai(AiConfig {
+                backend: Some("anthropic".into()),
+                model: Some("claude-sonnet-4-6".into()),
+                endpoint: None,
+                api_key: Some(key),
+                timeout_secs: 30,
+            })?;
+            println!("✓ Saved Claude config (model = claude-sonnet-4-6).");
+        }
+        "2" => {
+            if !command_exists("ollama") {
+                println!("`ollama` not found on PATH.");
+                println!("  Install: brew install ollama   (macOS)");
+                println!("  Then:    ollama serve          (in another tab)");
+                println!("  Then:    habitos connect ollama gemma2:2b");
+                return Ok(());
+            }
+            let raw = prompt_line("Model? [gemma2:2b] ")?;
+            let model = if raw.is_empty() {
+                "gemma2:2b".to_string()
+            } else {
+                raw
+            };
+            println!("Pulling `{model}` via Ollama (cached if already present)...");
+            let _ = std::io::stdout().flush();
+            let status = std::process::Command::new("ollama")
+                .arg("pull")
+                .arg(&model)
+                .status()?;
+            if !status.success() {
+                println!("Ollama pull failed. Skipping.");
+                return Ok(());
+            }
+            config.save_ai(AiConfig {
+                backend: Some("ollama".into()),
+                model: Some(model.clone()),
+                endpoint: Some("http://localhost:11434".into()),
+                api_key: None,
+                timeout_secs: 60,
+            })?;
+            println!("✓ Saved Ollama config (model = {model}).");
+        }
+        _ => {
+            println!("Skipped. Configure later with `habitos connect ...`.");
+        }
+    }
+    Ok(())
+}
+
+fn prompt_line(prompt: &str) -> Result<String> {
+    use std::io::Write as _;
+    print!("{prompt}");
+    std::io::stdout().flush()?;
+    let mut line = String::new();
+    std::io::stdin().lock().read_line(&mut line)?;
+    Ok(line.trim().to_string())
+}
+
+fn prompt_yes_no(question: &str, default_yes: bool) -> Result<bool> {
+    let suffix = if default_yes { "[Y/n]" } else { "[y/N]" };
+    let answer = prompt_line(&format!("{question} {suffix} "))?;
+    let trimmed = answer.trim().to_lowercase();
+    if trimmed.is_empty() {
+        Ok(default_yes)
+    } else {
+        Ok(trimmed.starts_with('y'))
+    }
 }
 
 async fn run_heatmap(db: &Db, days: u32) -> Result<()> {
