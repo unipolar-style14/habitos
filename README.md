@@ -2,21 +2,7 @@
 
 > A local-first, AI-optional terminal OS for running your life — habits, goals, focus, journal, reflection, and long-term memory in one immersive CLI.
 
-```
-                ┌─ HabitOS  2026-06-06    ▓▓▓▓▓▓▓░░░  73 ─┐
-
-  ╭─ Today ───────────────────╮  ╭─ Goals ─────────────────╮
-  │ ✔ DSA            7🔥  23% │  │ Ship HabitOS V1   ▓▓▓░ 75% │
-  │ ✔ Workout        3🔥  16% │  │ Lose 10kg         ▓░░░ 30% │
-  │ ○ Read            ·    6% │  │                            │
-  ╰───────────────────────────╯  ╰────────────────────────────╯
-  ╭─ Focus ───────────────────╮  ╭─ Journal ──────────────────╮
-  │ ● active  habitos         │  │ 2026-06-06                 │
-  │   23m elapsed             │  │ 22:50 — shipped heatmap +  │
-  ╰───────────────────────────╯  │       milestones today.    │
-                                 ╰────────────────────────────╯
-   d done · s skip · f focus · e journal · ? help · q quit
-```
+[![asciicast](https://asciinema.org/a/yXRwfVD2KTqNLdqI.svg)](https://asciinema.org/a/yXRwfVD2KTqNLdqI?autoplay=1)
 
 HabitOS lives where developers already are: the terminal. Everything is one binary, one SQLite file, and zero cloud calls. AI is opt-in — every feature has a deterministic fallback that works offline.
 
