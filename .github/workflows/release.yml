@@ -1,0 +1,57 @@
+name: Release
+
+# Triggered by pushing a tag like `v0.1.0`. Builds release binaries for the
+# three platforms Homebrew users care about, uploads them as a GitHub Release,
+# and computes sha256 sums the Formula needs.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --bin habitos --target ${{ matrix.target }}
+
+      - name: Package tarball
+        shell: bash
+        run: |
+          BIN_DIR=target/${{ matrix.target }}/release
+          TARBALL=habitos-${GITHUB_REF_NAME}-${{ matrix.target }}.tar.gz
+          tar -C "$BIN_DIR" -czf "$TARBALL" habitos
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+          sha256sum "$TARBALL" > "$TARBALL.sha256" || shasum -a 256 "$TARBALL" > "$TARBALL.sha256"
+          cat "$TARBALL.sha256"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.TARBALL }}
+            ${{ env.TARBALL }}.sha256
+          generate_release_notes: true
