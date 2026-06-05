@@ -428,20 +428,28 @@ Not yet measured (no telemetry by design). Manual proxy: shell-startup nudge + 9
 
 # 16. Future Roadmap
 
-## V1.1 — Engagement polish ⏳
+## V1.1 — Engagement layer ✅
 
-* Streak freeze ✅
-* Auto-detected milestones ✅
+Shipped together after V1.0 once daily-use friction made the priorities obvious.
+
+* Streak freeze (1 per ISO week) ✅
+* Auto-detected milestones (7/30/60/100/365) ✅
 * Heatmap ✅
 * Daily score in TUI header ✅
-* Smart nudge ✅
-* One-line capture ✅
+* Smart nudge + launchd 21:00 notification ✅
+* One-line capture (`habitos log`) ✅
+* Immersive ratatui TUI dashboard + themes ✅
+* `habitos connect` backend switcher ✅
+
+## V1.2 — Next batch ⏳
+
 * Inline add-habit form in TUI
 * Goal-mutation events in `event_log`
 * Anthropic prompt caching
 * Split AI config: completions backend ≠ embeddings backend
-* OS keychain for API keys
+* OS keychain for API keys (via `keyring` crate)
 * Pomodoro structure on `focus`
+* ASCII-fallback heatmap for terminals that mangle `░▒▓█`
 
 ## V2 — TUI maturity ⚪
 
