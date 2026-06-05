@@ -41,22 +41,32 @@ HabitOS is the missing combination: **terminal-first, local-first, single-binary
 
 ## Install
 
-```bash
-# From source (requires Rust ≥ 1.85)
-git clone git@github.com:av-feaster/habitos.git
-cd habitos
-cargo install --path habitos-cli
+### Homebrew (macOS Apple Silicon / Intel, Linux x86_64)
 
-# Verify
+```bash
+brew install av-feaster/tap/habitos
 habitos --version
 ```
 
-If `habitos` isn't found, ensure `~/.cargo/bin` is on your `PATH`:
+### From source (any platform with Rust ≥ 1.85)
+
+```bash
+git clone git@github.com:av-feaster/habitos.git
+cd habitos
+cargo install --path habitos-cli
+habitos --version
+```
+
+If `habitos` isn't found after a cargo install, ensure `~/.cargo/bin` is on your `PATH`:
 
 ```bash
 echo '. "$HOME/.cargo/env"' >> ~/.zshrc
 source ~/.zshrc
 ```
+
+### Pre-built binaries
+
+Tarballs for each platform are attached to every [GitHub Release](https://github.com/av-feaster/habitos/releases). Download, extract, and drop `habitos` into a directory on your `PATH`.
 
 ---
 
