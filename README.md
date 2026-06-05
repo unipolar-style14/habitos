@@ -63,10 +63,14 @@ source ~/.zshrc
 ## Quick start
 
 ```bash
-# Create habits
+habitos init     # 30-second interactive setup
+```
+
+That walks you through creating a habit, logging it, and optionally connecting an AI backend. Or skip the wizard:
+
+```bash
 habitos habit add DSA
 habitos habit add Workout
-habitos habit add Read
 
 # Log today in one line — infers habit, duration, and saves a journal note
 habitos log "did DSA for 45min"
@@ -86,6 +90,7 @@ That's it. Add the alias `alias l='habitos log'` and your daily flow is `l "..."
 | Command | What it does |
 |---|---|
 | `habitos` | Open the immersive TUI dashboard |
+| `habitos init` | Interactive first-run setup |
 | `habitos log "did X for Nmin"` | One-line capture: habit + focus + journal in one shot |
 | `habitos habit add <name>` | Create a habit |
 | `habitos habit done <name>` | Mark done today |
@@ -271,6 +276,23 @@ timeout_secs = 30
 ```
 
 Override the data directory with `HABITOS_HOME=/path` (useful for testing).
+
+### Sync across machines (without code)
+
+HabitOS is single-file SQLite. To use it across a laptop + desktop, point the data dir at a synced folder:
+
+```bash
+# iCloud Drive (macOS)
+export HABITOS_HOME="$HOME/Library/Mobile Documents/com~apple~CloudDocs/habitos"
+
+# Dropbox
+export HABITOS_HOME="$HOME/Dropbox/habitos"
+
+# Syncthing or any directory under it
+export HABITOS_HOME="$HOME/Sync/habitos"
+```
+
+Add the export to `~/.zshrc` for persistence. SQLite handles concurrent reads cleanly; single-user writes won't collide as long as you're not running `habitos` on two machines at the exact same instant.
 
 ### Prompt overrides
 
