@@ -112,6 +112,58 @@ enum Command {
     },
     /// Interactive first-run setup: create a habit, log it, optionally connect AI
     Init,
+    /// Drill a learning curriculum (DSA, vocab, music…) from a JSON source
+    #[command(subcommand)]
+    Skill(SkillCmd),
+}
+
+#[derive(Subcommand)]
+enum SkillCmd {
+    /// Print the JSON skill template to stdout (`habitos skill template > my-skill.json`)
+    Template,
+    /// Import a skill from a JSON file
+    Add {
+        /// Path to the JSON file
+        path: std::path::PathBuf,
+        /// Items to do per day (overrides --days if both given)
+        #[arg(long)]
+        pace: Option<i64>,
+        /// Items to revise per day
+        #[arg(long, default_value = "1")]
+        revisions: i64,
+        /// Target completion in N days; pace = ceil(items / days)
+        #[arg(long)]
+        days: Option<i64>,
+    },
+    /// List all skills with progress
+    List,
+    /// Today's drill across all skills, or one specific skill
+    Today { skill: Option<String> },
+    /// Mark items solved
+    Done {
+        skill: String,
+        #[arg(required = true, num_args = 1..)]
+        item_ids: Vec<String>,
+    },
+    /// Mark items revised (resets their position in the revision queue)
+    Revised {
+        skill: String,
+        #[arg(required = true, num_args = 1..)]
+        item_ids: Vec<String>,
+    },
+    /// Show items in a skill
+    Items {
+        skill: String,
+        /// Filter: pending | solved | skipped
+        #[arg(long)]
+        status: Option<String>,
+    },
+    /// Show progress for one skill or all
+    Progress { skill: Option<String> },
+    /// Delete a skill and all its items
+    Rm { skill: String },
+    /// Open the URL of a skill item in your default browser
+    Open { skill: String, item_id: String },
 }
 
 #[derive(Subcommand)]
@@ -378,8 +430,284 @@ pub async fn run() -> Result<()> {
             let db = open_and_migrate(&config).await?;
             run_init(&db, &mut config).await?;
         }
+        Command::Skill(sub) => {
+            let db = open_and_migrate(&config).await?;
+            run_skill(&db, sub).await?;
+        }
     }
     Ok(())
+}
+
+async fn run_skill(db: &Db, sub: SkillCmd) -> Result<()> {
+    use habitos_core::skills::{SKILL_TEMPLATE, SkillFile, SkillRepo, pace_for_target};
+
+    let repo = SkillRepo::new(db.pool());
+    let clock = SystemClock;
+
+    match sub {
+        SkillCmd::Template => {
+            print!("{SKILL_TEMPLATE}");
+        }
+        SkillCmd::Add {
+            path,
+            pace,
+            revisions,
+            days,
+        } => {
+            let file = SkillFile::from_path(&path)
+                .with_context(|| format!("reading {}", path.display()))?;
+            let total = file.items.len();
+            let resolved_pace = pace.unwrap_or_else(|| match days {
+                Some(d) => pace_for_target(total, d),
+                None => 2,
+            });
+            let today = clock.today_local();
+            if repo.find_by_name(&file.name).await?.is_some() {
+                anyhow::bail!(
+                    "skill `{}` already exists. Remove with `habitos skill rm {}` or rename in the JSON.",
+                    file.name,
+                    file.name
+                );
+            }
+            let skill = repo
+                .add(
+                    &file.name,
+                    file.description.as_deref(),
+                    Some(&path.display().to_string()),
+                    resolved_pace,
+                    revisions,
+                    today,
+                )
+                .await?;
+            let (inserted, _skipped) = repo.import_items(skill.id, &file.items).await?;
+            println!(
+                "✓ Added skill `{}` — {inserted} items, pace {resolved_pace}/day + {revisions} revision/day.",
+                skill.name
+            );
+            if let Some(d) = days {
+                let actual_days = total.div_ceil(resolved_pace as usize);
+                println!("  At this pace you finish in {actual_days} days (target was {d}).",);
+            }
+            println!("\nNext: `habitos skill today`");
+        }
+        SkillCmd::List => {
+            let skills = repo.list().await?;
+            if skills.is_empty() {
+                println!("No skills yet. Try `habitos skill template > my.json` to start.");
+                return Ok(());
+            }
+            for s in &skills {
+                let p = repo.progress(s.id).await?;
+                println!(
+                    "  {:<24} {:>3}/{:<3} ({:>3}%)  pace {}/d + {}/d revise  started {}",
+                    s.name,
+                    p.solved,
+                    p.total,
+                    p.percent(),
+                    s.pace,
+                    s.revisions,
+                    s.started_at
+                );
+            }
+        }
+        SkillCmd::Today { skill } => {
+            let skills = match skill {
+                Some(name) => vec![
+                    repo.find_by_name(&name)
+                        .await?
+                        .with_context(|| format!("no skill named `{name}`"))?,
+                ],
+                None => repo.list().await?,
+            };
+            if skills.is_empty() {
+                println!("No skills yet. Create one with `habitos skill add <path>`.");
+                return Ok(());
+            }
+            let today = clock.today_local();
+            for s in skills {
+                let p = repo.progress(s.id).await?;
+                println!(
+                    "\n{} — day {} ({}/{} solved, {}%)",
+                    s.name,
+                    s.day_number(today),
+                    p.solved,
+                    p.total,
+                    p.percent()
+                );
+
+                let pending = repo.pending_items(s.id, s.pace).await?;
+                if pending.is_empty() && p.pending() == 0 {
+                    println!("  ✓ Curriculum complete. Nothing left to learn.");
+                } else if pending.is_empty() {
+                    println!("  ✓ All new items already drilled. Just revisions today.");
+                } else {
+                    println!("  📘 New:");
+                    for item in &pending {
+                        print_skill_item(item);
+                    }
+                }
+
+                let revisions = repo.revision_candidates(s.id, s.revisions).await?;
+                if !revisions.is_empty() {
+                    println!("  🔁 Revise:");
+                    for item in &revisions {
+                        print_skill_item(item);
+                    }
+                }
+
+                if !pending.is_empty() {
+                    let example = pending[0].external_id.clone();
+                    println!("\n  Done? `habitos skill done {} {}`", s.name, example);
+                }
+            }
+        }
+        SkillCmd::Done { skill, item_ids } => {
+            let s = repo
+                .find_by_name(&skill)
+                .await?
+                .with_context(|| format!("no skill named `{skill}`"))?;
+            let n = repo.mark_solved(s.id, &item_ids).await?;
+            println!("✓ Marked {n} item(s) solved in `{}`.", s.name);
+        }
+        SkillCmd::Revised { skill, item_ids } => {
+            let s = repo
+                .find_by_name(&skill)
+                .await?
+                .with_context(|| format!("no skill named `{skill}`"))?;
+            let n = repo.mark_revised(s.id, &item_ids).await?;
+            println!("✓ Marked {n} item(s) revised in `{}`.", s.name);
+        }
+        SkillCmd::Items { skill, status } => {
+            let s = repo
+                .find_by_name(&skill)
+                .await?
+                .with_context(|| format!("no skill named `{skill}`"))?;
+            let items = repo.items(s.id, status.as_deref()).await?;
+            if items.is_empty() {
+                println!("(no items)");
+            } else {
+                for item in &items {
+                    let mark = match item.status.as_str() {
+                        "solved" => "✔",
+                        "skipped" => "⊘",
+                        _ => "○",
+                    };
+                    print!("  {mark} {}  ", item.title);
+                    if let Some(d) = &item.difficulty {
+                        print!("[{d}] ");
+                    }
+                    let tags = item.tag_list();
+                    if !tags.is_empty() {
+                        print!("({})", tags.join(", "));
+                    }
+                    println!();
+                }
+            }
+        }
+        SkillCmd::Progress { skill } => {
+            let skills = match skill {
+                Some(name) => vec![
+                    repo.find_by_name(&name)
+                        .await?
+                        .with_context(|| format!("no skill named `{name}`"))?,
+                ],
+                None => repo.list().await?,
+            };
+            for s in skills {
+                let p = repo.progress(s.id).await?;
+                let bar_width = 20u32;
+                let filled = (p.solved * bar_width / p.total.max(1)).min(bar_width);
+                let bar: String = (0..bar_width)
+                    .map(|i| if i < filled { '▓' } else { '░' })
+                    .collect();
+                println!(
+                    "  {:<24} {} {}/{}  {}%",
+                    s.name,
+                    bar,
+                    p.solved,
+                    p.total,
+                    p.percent()
+                );
+            }
+        }
+        SkillCmd::Rm { skill } => {
+            if repo.remove(&skill).await? {
+                println!("Removed `{skill}` and all its items.");
+            } else {
+                eprintln!("No skill named `{skill}`.");
+                std::process::exit(1);
+            }
+        }
+        SkillCmd::Open { skill, item_id } => {
+            let s = repo
+                .find_by_name(&skill)
+                .await?
+                .with_context(|| format!("no skill named `{skill}`"))?;
+            let item = repo
+                .find_item(s.id, &item_id)
+                .await?
+                .with_context(|| format!("no item `{item_id}` in `{}`", s.name))?;
+            match item.url.as_deref() {
+                None => {
+                    eprintln!("`{}` has no URL.", item.title);
+                    std::process::exit(1);
+                }
+                Some(url) => {
+                    println!("Opening {url}");
+                    open_url(url)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn open_url(url: &str) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    let (cmd, args): (&str, Vec<&str>) = ("open", vec![url]);
+    #[cfg(target_os = "linux")]
+    let (cmd, args): (&str, Vec<&str>) = ("xdg-open", vec![url]);
+    #[cfg(target_os = "windows")]
+    let (cmd, args): (&str, Vec<&str>) = ("cmd", vec!["/c", "start", "", url]);
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        eprintln!("Don't know how to open URLs on this platform. URL: {url}");
+        return Ok(());
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+    {
+        let status = std::process::Command::new(cmd)
+            .args(&args)
+            .status()
+            .with_context(|| format!("failed to spawn `{cmd}`"))?;
+        if !status.success() {
+            anyhow::bail!("`{cmd}` exited with {status}");
+        }
+        Ok(())
+    }
+}
+
+fn print_skill_item(item: &habitos_core::skills::SkillItem) {
+    let diff = item
+        .difficulty
+        .as_deref()
+        .map(|d| format!("[{d}] "))
+        .unwrap_or_default();
+    let tags = item.tag_list();
+    let tag_str = if tags.is_empty() {
+        String::new()
+    } else {
+        format!("  ({})", tags.join(", "))
+    };
+    println!(
+        "    {diff}{}{}  ·  {}",
+        item.title, tag_str, item.external_id
+    );
+    if let Some(url) = &item.url {
+        println!("      {url}");
+    }
 }
 
 async fn run_init(db: &Db, config: &mut Config) -> Result<()> {

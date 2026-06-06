@@ -6,6 +6,17 @@ All notable changes to HabitOS. Versions follow [SemVer](https://semver.org/).
 
 ### Added
 - `habitos init` — interactive first-run wizard. Creates a starter habit, logs today, optionally connects an AI backend.
+- **Skill system** — drill any curriculum (DSA, vocab, music, books) from a user-authored JSON.
+  - `habitos skill template` — print the JSON schema
+  - `habitos skill add <path> [--days N]` — import; pace auto-computed from `--days` or set explicitly via `--pace`
+  - `habitos skill today [<skill>]` — daily drill: N new items by position + R revisions (least-recently-touched solved items)
+  - `habitos skill done <skill> <id>...` — mark solved
+  - `habitos skill revised <skill> <id>...` — refresh the revision queue
+  - `habitos skill items <skill> [--status pending|solved|skipped]`
+  - `habitos skill progress [<skill>]` — unicode progress bar
+  - `habitos skill list / rm`
+  - `habitos skill open <skill> <id>` — opens the item's URL in your default browser (`open` on macOS, `xdg-open` on Linux)
+- Migration `0003_skills.sql` — `skills` + `skill_items` tables with indexes for the daily-picker query path.
 
 ---
 

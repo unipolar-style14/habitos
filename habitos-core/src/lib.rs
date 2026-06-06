@@ -14,6 +14,7 @@ pub mod memory;
 pub mod milestones;
 pub mod reports;
 pub mod reviews;
+pub mod skills;
 
 pub use clock::{Clock, SystemClock};
 pub use config::Config;
