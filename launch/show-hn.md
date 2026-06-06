@@ -11,6 +11,11 @@ Show HN: HabitOS – local-first AI habit tracker in your terminal
 ## Body
 
 ```
+This is a v0.1. I'm posting now to learn what doesn't make sense before
+committing more time. If you install it and bounce, an "I bounced because X"
+issue is the single most useful thing you can leave behind:
+https://github.com/av-feaster/habitos/issues/new?template=feedback.yml
+
 HabitOS is a single Rust binary that runs habits, goals, focus timer, journal,
 reflections, and AI coaching in your terminal — and stores everything in a
 local SQLite file. No cloud, no telemetry, AI is optional.

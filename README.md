@@ -6,6 +6,8 @@
 
 HabitOS lives where developers already are: the terminal. Everything is one binary, one SQLite file, and zero cloud calls. AI is opt-in — every feature has a deterministic fallback that works offline.
 
+> **This is v0.1.** I'm shipping early on purpose to find out what's broken before committing more time. If you try it and it doesn't stick, [tell me why](https://github.com/av-feaster/habitos/issues/new?template=feedback.yml) — "I bounced because X" is the most valuable thing I can hear right now.
+
 ---
 
 ## Why HabitOS

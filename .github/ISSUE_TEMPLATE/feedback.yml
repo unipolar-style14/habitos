@@ -1,0 +1,60 @@
+name: "Feedback — I tried HabitOS and…"
+description: A 2-minute structured form. Three short questions; skip any that don't apply.
+title: "[Feedback] "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying HabitOS. This is v0.1 — every "I bounced because X" makes the next version sharper.
+
+        Three short questions. Skip any that don't apply.
+
+  - type: textarea
+    id: bounce
+    attributes:
+      label: What made you bounce?
+      description: If you installed and then stopped, what was the moment you closed the terminal? Be specific — "the TUI colors looked wrong on my Solarized Dark theme" beats "the UI is bad".
+      placeholder: "e.g. The TUI emoji didn't render with my font. / Couldn't figure out how to log a habit without reading the help. / I already use Streaks + Day One and didn't see the migration story."
+    validations:
+      required: false
+
+  - type: textarea
+    id: missing
+    attributes:
+      label: What's the one feature whose absence would stop you using this daily?
+      description: One thing, not five. "If only it had X" — what's X?
+      placeholder: "e.g. mobile companion / iCloud sync / SM-2 spaced repetition for skills / calendar integration"
+    validations:
+      required: false
+
+  - type: textarea
+    id: stick
+    attributes:
+      label: What (if anything) would make you actually use this daily?
+      description: Honest. "Nothing — I'd never switch from my current setup" is a perfectly valuable answer.
+      placeholder: "..."
+    validations:
+      required: false
+
+  - type: input
+    id: env
+    attributes:
+      label: Your setup (optional)
+      description: Terminal + OS + what you currently use for personal-execution tracking
+      placeholder: "e.g. iTerm on macOS, currently using Streaks + Day One + Notion"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install?
+      options:
+        - "brew install av-feaster/tap/habitos"
+        - "cargo install"
+        - "Pre-built tarball from GitHub Releases"
+        - "Built from source"
+        - "Didn't install — just looked at the README"
+    validations:
+      required: false
