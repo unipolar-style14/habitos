@@ -652,7 +652,7 @@ dependencies = [
 
 [[package]]
 name = "habitos-ai"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -664,7 +664,7 @@ dependencies = [
 
 [[package]]
 name = "habitos-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -681,7 +681,7 @@ dependencies = [
 
 [[package]]
 name = "habitos-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "directories",
  "serde",
